@@ -1,0 +1,70 @@
+# 解决docker-compose up -d后容器总是重启的问题
+version: '3.8'
+
+services:
+  reranker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reranker
+    restart: unless-stopped
+    ports:
+      - "${PORT:-6006}:6006"
+    environment:
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT:-6006}
+      - WORKERS=1  # 设置为1个worker以节省显存
+      - WORKER_CONNECTIONS=${WORKER_CONNECTIONS:-100}
+      - TIMEOUT=${TIMEOUT:-300}  # 增加超时时间
+      - KEEP_ALIVE=${KEEP_ALIVE:-5}
+      - ACCESS_TOKEN=${ACCESS_TOKEN:-}
+      - MODEL_DEVICE=${MODEL_DEVICE:-cuda}
+      - MODEL_PRECISION=${MODEL_PRECISION:-bf16}
+      - CUDA_VISIBLE_DEVICES=0
+      - CUDA_HOME=/usr/local/cuda-12.1
+      - LD_LIBRARY_PATH=/usr/local/cuda-12.1/lib64:/usr/local/cuda-12.1/extras/CUPTI/lib64:$LD_LIBRARY_PATH
+      - MAX_SEQ_LENGTH=${MAX_SEQ_LENGTH:-512}
+      - BATCH_SIZE=${BATCH_SIZE:-1}  # 减小批处理大小以加快加载速度
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+      - LOCAL_FILES_ONLY=1
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128  # 优化CUDA内存分配
+      - TOKENIZERS_PARALLELISM=false  # 禁用tokenizer并行以加快加载速度
+      - TORCH_CUDA_ARCH_LIST="8.0;8.6"  # 指定CUDA架构
+      - GRADIO_SERVER_PORT=0  # 禁用gradio server
+      - DISABLE_TELEMETRY=1  # 禁用遥测
+      - HF_DATASETS_OFFLINE=1  # 离线模式
+      - HF_EVALUATE_OFFLINE=1  # 离线模式
+      - HF_TOKENIZERS_IS_IN_TESTS=1  # 禁用tokenizer测试
+      - OMP_NUM_THREADS=1  # 限制OpenMP线程数
+      - LOG_FORMAT=${LOG_FORMAT:-'%(asctime)s - %(name)s - %(levelname)s - %(message)s'}
+    volumes:
+      - ./logs:/app/logs  # 挂载日志目录
+    shm_size: '2gb'  # 增加共享内存大小
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: 
+                - gpu
+                - compute
+                - utility
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6006/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  default:
+    name: reranker-network
+    driver: bridge

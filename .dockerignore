@@ -1,0 +1,67 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+
+# 忽略除模型文件外的其他文件
+**/*
+!models/**
+!app.py
+!config.py
+!requirements.txt
+!Dockerfile
+!docker-compose.yml
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment files
+.env
+.venv
+env/
+venv/
+ENV/
+
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Local development
+*.local
+
+# Model files (if needed)
+*.bin
+*.h5
+*.pth
+*.pt
+*.pkl
+
+# Large files
+*.zip
+*.tar.gz
+*.tgz
+*.7z

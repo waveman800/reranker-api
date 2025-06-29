@@ -1,0 +1,18 @@
+# Core dependencies
+fastapi>=0.104.1
+transformers[sentencepiece]>=4.21.3
+FlagEmbedding>=1.2.8
+pydantic>=1.10.13
+uvicorn>=0.17.6
+python-dotenv>=1.0.0
+
+# Web server
+gunicorn>=20.1.0
+httptools>=0.4.0
+uvloop>=0.16.0
+python-multipart>=0.0.5
+
+# Utils
+numpy<2.0.0  # Ensure numpy version compatibility
+itsdangerous>=2.0.1
+protobuf>=3.20.3
