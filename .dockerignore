@@ -1,13 +1,12 @@
-# Git
-.git
-.gitignore
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+env/
+venv/
+ENV/
 build/
 develop-eggs/
 dist/
@@ -18,50 +17,57 @@ lib/
 lib64/
 parts/
 sdist/
-
-# 忽略除模型文件外的其他文件
-**/*
-!models/**
-!app.py
-!config.py
-!requirements.txt
-!Dockerfile
-!docker-compose.yml
 var/
 wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
-# Environment files
-.env
-.venv
-env/
+# Virtual environments
 venv/
 ENV/
-
+env/
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
+*~
 
 # Logs
+logs/
 *.log
 
-# Local development
-*.local
+# Environment
+.env
+.env.local
+.env.*.local
 
-# Model files (if needed)
-*.bin
-*.h5
-*.pth
-*.pt
-*.pkl
+# Git
+.git/
+.gitignore
 
-# Large files
-*.zip
-*.tar.gz
-*.tgz
-*.7z
+# Documentation
+*.md
+!README.md
+
+# Tests
+tests/
+test_*.py
+*_test.py
+
+# Client examples
+client_example.py
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Models (在构建时单独复制)
+# models/
+
+# Other
+.DS_Store
+Thumbs.db

@@ -1,3 +1,4 @@
+# 多模态重排服务 Dockerfile
 # 使用基础镜像
 FROM ccr.ccs.tencentyun.com/waveman/pytorch:2.5.1-cuda12.1-cudnn9-runtime
 
@@ -13,10 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     tzdata \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
-
-
 
 # 复制项目文件
 COPY requirements.txt .
@@ -45,15 +46,16 @@ ENV PYTHONUNBUFFERED=1 \
     KEEP_ALIVE=10 \
     MODEL_DEVICE=cuda \
     MODEL_PRECISION=bf16 \
-    MAX_MEMORY_PERCENTAGE=50 \
-    BATCH_SIZE=1 \
-    MAX_SEQ_LENGTH=256 \
+    MODEL_TYPE=multimodal \
+    MAX_MEMORY_PERCENTAGE=80 \
+    BATCH_SIZE=4 \
+    MAX_SEQ_LENGTH=512 \
     LOG_LEVEL=INFO \
     LOG_FORMAT='%(asctime)s - %(name)s - %(levelname)s - %(message)s' \
     TOKENIZERS_PARALLELISM=false \
     PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128 \
-    # 设置模型路径
-    MODEL_NAME_OR_PATH=/app/models/Qwen3-Reranker-4B
+    # 设置模型路径（默认多模态模型）
+    MODEL_NAME_OR_PATH=/app/models/Qwen3-VL-Reranker-2B
 
 # 创建日志目录
 RUN mkdir -p /app/logs
