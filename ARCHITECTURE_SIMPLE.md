@@ -1,27 +1,31 @@
 # 可信数据护盾 - 简化架构方案
 
-**核心洞察**: 不需要向量数据库，重点是**数据可用不可见** + **OpenAI兼容接口**
+**核心定位**: 数据保险箱 + OpenAI兼容接口，**无需重排功能**
 
 ---
 
-## 1. 核心定位
+## 1. 核心价值
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     可信数据护盾 = 数据保险箱 + API网关           │
+│                     可信数据护盾 = 数据保险箱                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │   数据提供方                          大模型厂商/开发者          │
 │   ┌──────────┐    ┌──────────────┐    ┌──────────┐            │
-│   │ 原始数据 │───▶│  可信数据    │───▶│ 模型训练 │            │
-│   │ (加密)   │    │  护盾(TEE)   │    │ /推理    │            │
+│   │ 原始数据 │───▶│   TEE保险箱   │───▶│ 模型调用 │            │
+│   │ (加密)   │    │  (可用不可见) │    │ (OpenAI) │            │
 │   └──────────┘    └──────────────┘    └──────────┘            │
 │                          │                                      │
 │                          ▼                                      │
 │                   ┌──────────────┐                             │
-│                   │ OpenAI兼容   │                             │
-│                   │ API接口      │                             │
+│                   │ OpenAI兼容API│                             │
+│                   │ • 数据增强   │                             │
+│                   │ • 检索注入   │                             │
 │                   └──────────────┘                             │
+│                                                                 │
+│   数据提供方收益: 数据变现 + 完全可控 + 隐私保护                 │
+│   大模型厂商收益: 高质量数据 + 合规使用 + 零迁移成本             │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -43,7 +47,6 @@
 │   │  OpenAI兼容接口                                          │  │
 │   │  • POST /v1/chat/completions                            │  │
 │   │  • POST /v1/embeddings                                  │  │
-│   │  • POST /v1/rerank (扩展)                               │  │
 │   └─────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -59,8 +62,8 @@
 │   │                                                         │  │
 │   │  ┌─────────────────────────────────────────────────┐   │  │
 │   │  │  处理引擎 (在TEE内运行)                          │   │  │
-│   │  │  • 数据检索      • 重排序                        │   │  │
-│   │  │  • 数据增强      • 提示组装                      │   │  │
+│   │  │  • 数据检索      • 数据增强                      │   │  │
+│   │  │  • 提示组装      • 结果过滤                      │   │  │
 │   │  └─────────────────────────────────────────────────┘   │  │
 │   └─────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
@@ -71,7 +74,7 @@
 │   ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐   │
 │   │ ZKP证明生成     │  │ 区块链存证      │  │ 使用审计     │   │
 │   │ • 数据质量证明  │  │ • 数据哈希上链  │  │ • 调用记录   │   │
-│   │ • 计算完整性    │  │ • 证明上链      │  │ • 用量统计   │   │
+│   │ • 数据完整性    │  │ • 证明上链      │  │ • 用量统计   │   │
 │   └─────────────────┘  └─────────────────┘  └──────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -88,62 +91,68 @@
 # 1. 对话补全 (标准)
 POST /v1/chat/completions
 {
-  "model": "trusted-data-shield/finance-v1",
+  "model": "gpt-4",
   "messages": [
     {"role": "system", "content": "你是金融专家助手"},
     {"role": "user", "content": "分析这份财报的风险点"}
   ],
+  "data_sources": ["finance-reports-2024"],  # 指定受保护数据源
   "temperature": 0.7
 }
 
 # 2. 文本嵌入 (标准)
 POST /v1/embeddings
 {
-  "model": "trusted-data-shield/embeddings-v1",
-  "input": "需要分析的文本"
-}
-
-# 3. 数据检索 (扩展，非标准但类似)
-POST /v1/data/retrieve
-{
-  "dataset": "finance-reports-2024",
-  "query": "Q3营收增长",
-  "top_k": 5,
-  "filters": {"industry": "banking"}
+  "model": "text-embedding-3-small",
+  "input": "需要分析的文本",
+  "data_source": "finance-reports-2024"  # 可选：在特定数据源上计算
 }
 ```
 
-### 3.2 关键创新：数据注入方式
+### 3.2 数据增强方式
 
 ```python
 # 方式1: 自动检索注入 (最常用)
 POST /v1/chat/completions
 {
   "model": "gpt-4",
-  "messages": [...],
-  "data_sources": ["finance-reports-2024", "market-data-2024"],  # 指定数据源
-  "auto_retrieve": true  # 自动检索相关数据注入上下文
+  "messages": [
+    {"role": "user", "content": "分析市场风险"}
+  ],
+  "data_sources": ["finance-reports-2024", "market-data-2024"],
+  "auto_retrieve": true,  # 自动检索相关数据注入上下文
+  "top_k": 5  # 注入Top 5相关片段
 }
-# 系统内部：TEE内检索 → 组装prompt → 调用模型 → 返回结果
+
+# 系统内部处理:
+# 1. TEE内检索与查询相关的数据片段
+# 2. 组装增强的system prompt
+# 3. 发送到上游大模型
+# 4. 返回结果
 
 # 方式2: 显式数据引用
 POST /v1/chat/completions
 {
   "model": "gpt-4",
   "messages": [
-    {"role": "system", "content": "基于以下财报数据回答："},
-    {"role": "data", "source": "finance-reports-2024/Q3.pdf"},  # 引用受保护数据
+    {"role": "system", "content": "基于以下受保护数据回答："},
+    {"role": "data", "source": "finance-reports-2024/Q3.pdf", "top_k": 3},
     {"role": "user", "content": "分析营收趋势"}
   ]
 }
 
-# 方式3: 重排序增强 (RAG增强)
-POST /v1/rerank  # 我们的特色接口
+# 方式3: 数据过滤 (仅使用特定数据)
+POST /v1/chat/completions
 {
-  "query": "查找相关法规",
-  "documents": ["doc1", "doc2", "doc3"],  # 文档ID
-  "dataset": "legal-regulations-2024",
-  "top_k": 3
+  "model": "gpt-4",
+  "messages": [
+    {"role": "user", "content": "分析银行板块"}
+  ],
+  "data_sources": ["finance-reports-2024"],
+  "data_filter": {
+    "industry": "banking",
+    "date_range": "2024-Q3"
+  }
 }
 ```
 
@@ -163,22 +172,29 @@ POST /v1/rerank  # 我们的特色接口
     │                    │  │ Intel SGX     │    │
     │                    │  │ ┌───────────┐ │    │
     │                    │  │ │ 解密数据  │ │    │
-    │                    │  │ │ 检索/排序 │ │    │
-    │                    │  │ │ 组装结果  │ │    │
+    │                    │  │ │ 检索片段  │ │    │
+    │                    │  │ │ 组装Prompt│ │    │
     │                    │  │ └───────────┘ │    │
     │                    │  └───────────────┘    │
     │                    │                       │
-    │                    │  3.返回处理结果       │
+    │                    │  3.调用上游模型       │
+    │                    │─────────────────────▶│
+    │                    │  (只传Prompt,不传数据)│
+    │                    │                       │
+    │                    │  4.返回模型结果       │
+    │                    │◀─────────────────────│
+    │                    │                       │
+    │                    │  5.返回最终结果       │
     │                    │─────────────────────▶│
     │                    │  (原始数据不离开TEE)   │
 ```
 
 **特点**:
 - 数据在TEE内解密和处理
-- 输出的是**结果**，不是原始数据
+- 输出的是**增强后的Prompt/结果**，不是原始数据
 - 硬件级安全保证
 
-### 方式2: 同态加密 (备选)
+### 方式2: 同态加密 (备选，计算密集型)
 
 ```
 数据提供方          可信数据护盾              大模型厂商
@@ -197,26 +213,7 @@ POST /v1/rerank  # 我们的特色接口
 **特点**:
 - 数据始终加密
 - 计算开销大（慢10-100倍）
-- 适合简单计算
-
-### 方式3: 安全多方计算 (MPC) (备选)
-
-```
-数据提供方A          数据提供方B           可信数据护盾
-    │                    │                    │
-    │ 1.分片上传         │ 1.分片上传          │
-    │─────────────────▶  │─────────────────▶  │
-    │                    │                    │
-    │                    │                    │ 2.MPC协议计算
-    │                    │                    │   (各方不泄露)
-    │                    │                    │
-    │◀───────────────────┼◀───────────────────│ 3.返回结果
-```
-
-**特点**:
-- 多方数据联合计算
-- 无单一信任方
-- 通信开销大
+- 适合简单计算（如统计）
 
 ---
 
@@ -227,7 +224,7 @@ POST /v1/rerank  # 我们的特色接口
 ```python
 # services/data_vault/main.py
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from pydantic import BaseModel
 import hashlib
 
@@ -298,33 +295,44 @@ app = FastAPI()
 # 上游模型配置
 MODEL_ROUTES = {
     "gpt-4": "https://api.openai.com/v1",
+    "gpt-3.5-turbo": "https://api.openai.com/v1",
     "claude-3": "https://api.anthropic.com/v1",
-    "local-llm": "http://localhost:8000/v1"
 }
 
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
-    """OpenAI兼容的对话接口"""
+    """OpenAI兼容的对话接口 - 核心功能"""
     body = await request.json()
     
     # 1. 检查是否需要注入受保护数据
     if "data_sources" in body:
-        # 在TEE内检索相关数据
+        # 在TEE内检索相关数据片段
         context = await retrieve_in_tee(
             sources=body["data_sources"],
             query=body["messages"][-1]["content"],
-            top_k=5
+            top_k=body.get("top_k", 5),
+            filters=body.get("data_filter", {})
         )
         
         # 组装增强的prompt
+        enhanced_system = f"""基于以下受保护数据回答问题：
+
+{context}
+
+注意：以上数据来自可信数据源，请基于这些信息回答。"""
+        
+        # 插入到messages开头
         body["messages"].insert(0, {
             "role": "system",
-            "content": f"基于以下受保护数据回答：\n{context}"
+            "content": enhanced_system
         })
     
     # 2. 路由到上游模型
     model = body.get("model", "gpt-4")
     upstream_url = MODEL_ROUTES.get(model)
+    
+    if not upstream_url:
+        return {"error": "Unsupported model"}
     
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -344,37 +352,32 @@ async def chat_completions(request: Request):
     
     return response.json()
 
-@app.post("/v1/data/retrieve")
-async def data_retrieve(request: DataRetrieveRequest):
-    """受保护数据检索接口"""
+@app.post("/v1/embeddings")
+async def embeddings(request: Request):
+    """文本嵌入接口"""
+    body = await request.json()
     
-    # 1. 验证访问权限
-    await check_access_permission(
-        user_id=request.user_id,
-        dataset=request.dataset
-    )
+    # 如果指定了数据源，在TEE内计算
+    if "data_source" in body:
+        # TEE内加载数据并计算嵌入
+        embedding = await compute_embedding_in_tee(
+            data_source=body["data_source"],
+            text=body["input"]
+        )
+        return {
+            "object": "list",
+            "data": [{"embedding": embedding}],
+            "model": body.get("model", "text-embedding-3-small")
+        }
     
-    # 2. 在TEE内执行检索
-    results = await search_in_tee(
-        dataset=request.dataset,
-        query=request.query,
-        filters=request.filters,
-        top_k=request.top_k
-    )
-    
-    # 3. 返回检索结果（不是原始数据）
-    return DataRetrieveResponse(
-        results=[
-            {
-                "id": r.id,
-                "relevance_score": r.score,
-                "summary": r.summary,  # TEE内生成的摘要
-                "metadata": r.metadata
-            }
-            for r in results
-        ],
-        total_found=results.total
-    )
+    # 否则转发到标准嵌入服务
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.openai.com/v1/embeddings",
+            headers={"Authorization": f"Bearer {OPENAI_KEY}"},
+            json=body
+        )
+    return response.json()
 ```
 
 ### 5.3 TEE内处理引擎
@@ -388,59 +391,35 @@ use sgx_types::*;
 /// TEE内数据处理器
 pub struct TEEProcessor {
     data_vault: DataVault,
-    reranker: Reranker,
 }
 
 impl TEEProcessor {
-    /// 在TEE内检索数据
+    /// 在TEE内检索数据片段
     pub fn retrieve_data(
         &self,
         dataset_id: &str,
         query: &str,
-        top_k: usize
-    ) -> Result<Vec<RetrievalResult>, TEEError> {
+        top_k: usize,
+        filters: &HashMap<String, String>
+    ) -> Result<String, TEEError> {
         // 1. 从安全存储加载加密数据
         let encrypted_data = self.data_vault.load(dataset_id)?;
         
         // 2. 在TEE内解密
         let data = self.decrypt_in_enclave(&encrypted_data)?;
         
-        // 3. 执行检索（可以是向量检索、关键词检索等）
-        let results = self.search(&data, query, top_k)?;
+        // 3. 应用过滤器
+        let filtered = self.apply_filters(&data, filters)?;
         
-        // 4. 生成摘要（不返回原始数据）
-        let summarized = results.iter().map(|r| {
-            RetrievalResult {
-                id: r.id.clone(),
-                score: r.score,
-                summary: self.generate_summary(&r.content),  // 摘要
-                metadata: r.metadata.clone(),
-            }
-        }).collect();
+        // 4. 检索相关片段（可以是关键词匹配、语义检索等）
+        let fragments = self.search_fragments(&filtered, query, top_k)?;
         
-        Ok(summarized)
-    }
-    
-    /// 在TEE内执行重排序
-    pub fn rerank(
-        &self,
-        query: &str,
-        doc_ids: &[String],
-        dataset_id: &str
-    ) -> Result<Vec<ScoredDocument>, TEEError> {
-        // 1. 加载文档
-        let mut docs = vec![];
-        for id in doc_ids {
-            let encrypted = self.data_vault.load_doc(dataset_id, id)?;
-            let doc = self.decrypt_in_enclave(&encrypted)?;
-            docs.push(doc);
-        }
+        // 5. 组装成文本（不返回原始数据）
+        let context = fragments.iter()
+            .map(|f| format!("[片段{}] {}\n", f.id, f.summary))
+            .collect::<String>();
         
-        // 2. 执行重排序
-        let scores = self.reranker.rerank(query, &docs)?;
-        
-        // 3. 返回分数（不返回文档内容）
-        Ok(scores)
+        Ok(context)
     }
     
     /// 生成ZKP证明
@@ -454,16 +433,32 @@ impl TEEProcessor {
         
         // 2. 计算质量指标
         let quality_score = self.calculate_quality(&data);
-        let label_distribution = self.calculate_distribution(&data);
+        let data_size = data.len();
         
         // 3. 生成ZKP证明
         let proof = self.zkp_prover.prove(DataQualityCircuit {
             data: &data,  // 私有输入
             quality_score,  // 公开输入
-            label_distribution,  // 公开输入
+            data_size,  // 公开输入
         })?;
         
         Ok(proof)
+    }
+    
+    /// 计算文本嵌入（在TEE内）
+    pub fn compute_embedding(
+        &self,
+        dataset_id: &str,
+        text: &str
+    ) -> Result<Vec<f32>, TEEError> {
+        // 1. 加载数据
+        let encrypted = self.data_vault.load(dataset_id)?;
+        let data = self.decrypt_in_enclave(&encrypted)?;
+        
+        // 2. 在TEE内计算嵌入（使用本地模型）
+        let embedding = self.embedding_model.encode(&data, text)?;
+        
+        Ok(embedding)
     }
 }
 ```
@@ -472,7 +467,7 @@ impl TEEProcessor {
 
 ## 6. 数据可用不可见的具体形式
 
-### 6.1 形式1: 检索结果（最常用）
+### 形式1: 检索片段注入
 
 ```
 用户查询: "查找Q3营收增长超过20%的公司"
@@ -481,23 +476,22 @@ TEE内处理:
   1. 解密财报数据
   2. 分析每家公司的Q3营收
   3. 筛选符合条件的公司
-  4. 生成摘要（不返回完整财报）
+  4. 生成摘要片段
 
-返回结果:
-  [
-    {
-      "company": "ABC银行",
-      "revenue_growth": "25%",
-      "summary": "Q3营收同比增长25%，主要得益于...",
-      "source": "finance-reports-2024/ABC-Q3.pdf"
-    },
-    ...
-  ]
+组装成Prompt:
+  "基于以下受保护数据回答问题：
+  
+  [片段1] ABC银行: Q3营收同比增长25%，主要得益于...
+  [片段2] XYZ保险: Q3营收同比增长30%，受益于...
+  
+  用户问题: 查找Q3营收增长超过20%的公司"
+
+发送到GPT-4 → 返回回答
 
 原始财报数据从未离开TEE！
 ```
 
-### 6.2 形式2: 增强Prompt
+### 形式2: 数据增强上下文
 
 ```
 用户问题: "分析市场风险"
@@ -507,49 +501,19 @@ TEE内处理:
   2. 组装成增强的system prompt
   3. 发送到上游大模型
 
-发送到GPT-4的prompt:
+发送到GPT-4的完整prompt:
   "基于以下受保护的市场数据回答问题：
-   
-   [市场数据摘要1]
-   [市场数据摘要2]
-   ...
-   
-   用户问题: 分析市场风险"
+  
+  [市场数据摘要1] 2024年Q3股市波动率...
+  [市场数据摘要2] 债券收益率变化...
+  
+  用户问题: 分析市场风险"
 
 用户看到的:
   GPT-4的回答（基于受保护数据，但看不到原始数据）
 ```
 
-### 6.3 形式3: 重排序分数
-
-```
-用户已有文档列表，需要排序
-
-POST /v1/rerank
-{
-  "query": "相关法规",
-  "documents": ["doc1", "doc2", "doc3"],
-  "dataset": "legal-regulations-2024"
-}
-
-TEE内处理:
-  1. 加载doc1, doc2, doc3的完整内容
-  2. 计算与"相关法规"的相关性分数
-  3. 返回排序后的分数
-
-返回结果:
-  {
-    "results": [
-      {"doc_id": "doc2", "score": 0.95, "rank": 1},
-      {"doc_id": "doc1", "score": 0.82, "rank": 2},
-      {"doc_id": "doc3", "score": 0.67, "rank": 3}
-    ]
-  }
-
-文档内容从未离开TEE，只返回分数！
-```
-
-### 6.4 形式4: 聚合统计
+### 形式3: 聚合统计结果
 
 ```
 用户查询: "计算行业平均利润率"
@@ -557,17 +521,38 @@ TEE内处理:
 TEE内处理:
   1. 加载所有相关公司的财报
   2. 计算平均利润率
-  3. 返回统计结果
+  3. 返回统计结果（不返回明细）
+
+组装成Prompt:
+  "基于以下统计数据回答问题：
+  
+  行业平均净利润率: 15.3%
+  样本数量: 50家公司
+  置信区间: ±2.1%
+  
+  用户问题: 计算行业平均利润率"
+
+50家公司的详细财务数据从未暴露！
+```
+
+### 形式4: 嵌入向量（用于下游任务）
+
+```
+用户请求: 计算文本与某数据集的相似度
+
+TEE内处理:
+  1. 加载数据集
+  2. 在TEE内计算嵌入向量
+  3. 返回向量（不包含原始文本）
 
 返回结果:
   {
-    "metric": "平均净利润率",
-    "value": "15.3%",
-    "sample_size": 50,
-    "confidence_interval": "±2.1%"
+    "embedding": [0.1, 0.2, ...],  # 1536维向量
+    "model": "text-embedding-3-small",
+    "data_source": "finance-reports-2024"
   }
 
-50家公司的详细财务数据从未暴露！
+原始文本在TEE内处理，只返回向量！
 ```
 
 ---
@@ -588,6 +573,7 @@ services:
     environment:
       - TEE_ENDPOINT=http://tee-engine:8080
       - BLOCKCHAIN_ENDPOINT=http://blockchain:8545
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - tee-engine
 
@@ -614,7 +600,7 @@ services:
       - postgres
       - tee-engine
 
-  # 区块链节点 (轻节点)
+  # 区块链节点 (轻节点，用于审计)
   blockchain:
     image: hyperledger/fabric-peer:2.4
     volumes:
@@ -645,7 +631,7 @@ volumes:
 │                     可信数据护盾 = 数据保险箱                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  数据提供方                        大模型厂商                    │
+│  数据提供方                        大模型厂商/开发者             │
 │  ┌──────────┐                    ┌──────────┐                  │
 │  │ 原始数据 │───加密上传────────▶│ 数据保险箱 │                 │
 │  │          │                    │   (TEE)   │                 │
@@ -659,7 +645,7 @@ volumes:
 │                              │ OpenAI兼容API   │               │
 │                              │ • chat/completions│             │
 │                              │ • embeddings    │               │
-│                              │ • data/retrieve │               │
+│                              │ • 数据增强      │               │
 │                              └─────────────────┘               │
 │                                        │                        │
 │                                        ▼                        │
@@ -667,6 +653,9 @@ volumes:
 │                              │ GPT-4/Claude等  │               │
 │                              │ 上游大模型       │               │
 │                              └─────────────────┘               │
+│                                                                 │
+│  数据可用不可见形式:                                            │
+│  • 检索片段注入  • 数据增强上下文  • 聚合统计  • 嵌入向量       │
 │                                                                 │
 │  价值:                                                          │
 │  • 数据提供方: 数据变现 + 完全可控 + 隐私保护                   │
@@ -679,10 +668,11 @@ volumes:
 ---
 
 **简化要点**:
-1. **无向量数据库** - 用TEE内计算替代，更通用
-2. **OpenAI兼容** - 零迁移成本，开发者友好
-3. **多种可用不可见形式** - 检索、增强、排序、统计
-4. **核心就是数据保险箱** - TEE保护 + ZKP证明 + 审计追溯
+1. **无重排功能** - 专注于数据保险箱核心能力
+2. **无向量数据库** - 用TEE内计算替代
+3. **OpenAI兼容** - 零迁移成本，开发者友好
+4. **多种可用不可见形式** - 片段、增强、统计、嵌入
+5. **核心就是数据保险箱** - TEE保护 + ZKP证明 + 审计追溯
 
 **作者**: 灵枢 (架构师)  
 **日期**: 2026-04-17
